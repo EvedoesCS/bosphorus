@@ -1,8 +1,10 @@
-package main 
+package main
 
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"os"
 	"log"
 	"net"
 )
@@ -44,16 +46,41 @@ func HandleConnection(conn net.Conn) {
 
 	// Handle incoming commands from the clients;
 	for {
-		msg, err := bufio.NewReader(conn).ReadString('\n')
+		// Create the file;
+		file, err := os.Create("./cat")
 		if (err != nil) {
-			fmt.Printf("Client disconnected or errored out %s\n", err.Error())
-			return
+			fmt.Printf("ERROR: Could not create file: %s\n", err.Error())
 		}
-		// Print the message from the client;
-		fmt.Printf("Client: %s\n", msg)
+
+		// Create buffer for reading file from conn;
+		buf := make([]byte, 8)
+		// Create reader to read bytes into buf;
+		reader := bufio.NewReader(conn)
+		for {
+			// Read data from conn and write it to the file;
+			n, err := io.ReadFull(reader, buf)
+			if n > 0 {
+				// Write buffer to file;
+				_, err = file.Write(buf)
+				if (err != nil) {
+					fmt.Printf("ERROR: Problem writing buf to file %s", err.Error())
+					return
+				}
+			}
+
+			if (err == io.EOF) {
+				fmt.Printf("Reached EOF\n")
+				return
+			} 
+
+			if (err == io.ErrUnexpectedEOF) {
+				fmt.Printf("ERROR: Problem reading file: %s\n", err.Error())
+				break
+			}
+		}
 
 		// Echo the msg back to the client;
-		resp := []byte("MSG recieved: " + msg)
+		resp := []byte("File recieved: ")
 		conn.Write(resp)
 	}
 }
